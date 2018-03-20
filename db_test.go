@@ -124,7 +124,6 @@ func TestGetRange(t *testing.T) {
 	for v := range readChannel {
 		count++
 
-		fmt.Println("Read from channel")
 		if prev == nil {
 			prev = v.Key
 			continue
