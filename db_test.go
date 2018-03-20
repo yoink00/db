@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"bytes"
 	"math/rand"
 	"testing"
