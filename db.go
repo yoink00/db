@@ -12,10 +12,11 @@ var indices map[string]*llrb.LLRB
 var ErrNotFound = errors.New("Key not found")
 var ErrInvalidIndex = errors.New("Invalid index")
 var ErrIndexNotMatch = errors.New("Indices do not match")
+var ErrOutOfMemory = errors.New("Out of memory")
 
 type Key struct {
 	Index string
-	Key []byte
+	Key   []byte
 }
 
 type KeyValuePair struct {
@@ -23,6 +24,45 @@ type KeyValuePair struct {
 
 	Key   []byte
 	Value []byte
+}
+
+type bigBuffer interface {
+	Make(cap int) ([]byte, error)
+	Delete([]byte) error
+}
+
+type inMemoryBuffer struct {
+	bigBuffer
+
+	massiveBuf []byte
+	nextBuf    int
+	maxSize    int
+}
+
+func newInMemoryBuffer(cap int) bigBuffer {
+	b := new(inMemoryBuffer)
+	b.massiveBuf = make([]byte, cap, cap)
+	b.nextBuf = 0
+	b.maxSize = cap
+
+	return b
+}
+
+func (b *inMemoryBuffer) Make(cap int) ([]byte, error) {
+	if b.nextBuf+cap > b.maxSize {
+		return nil, ErrOutOfMemory
+	}
+
+	ret := b.massiveBuf[b.nextBuf : b.nextBuf+cap]
+	b.nextBuf += cap
+
+	return ret, nil
+}
+
+var massiveBuffer = newInMemoryBuffer(1073741824)
+
+func (b *inMemoryBuffer) Delete([]byte) error {
+	return errors.New("Not implemented")
 }
 
 func (lhs *KeyValuePair) Less(rhs llrb.Item) bool {
@@ -41,9 +81,14 @@ func Put(keys []*Key, item []byte) {
 		}
 
 		i := new(KeyValuePair)
-		i.Key = make([]byte, len(k.Key), len(k.Key))
+		//i.Key = make([]byte, len(k.Key), len(k.Key))
+		i.Key, err := massiveBuffer.Make(len(k.Key))
+		i.Key = tmp
+		//i.Key := massiveBuffer.Make(len(k.Key))
 		copy(i.Key, k.Key)
-		i.Value = make([]byte, len(item), len(item))
+		//i.Value = make([]byte, len(item), len(item))
+		i.Value = massiveBuf[nextBuf : nextBuf+len(item)]
+		nextBuf += len(item)
 		copy(i.Value, item)
 
 		indices[k.Index].ReplaceOrInsert(i)
@@ -90,10 +135,10 @@ func GetRange(start *Key, end *Key, values chan<- *KeyValuePair) error {
 		defer close(values)
 
 		indices[start.Index].AscendRange(s, e, func(i llrb.Item) bool {
-		    bi := i.(*KeyValuePair)
-		    values <- bi
+			bi := i.(*KeyValuePair)
+			values <- bi
 
-		    return true
+			return true
 		})
 	}()
 
