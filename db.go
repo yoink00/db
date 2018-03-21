@@ -81,14 +81,14 @@ func Put(keys []*Key, item []byte) {
 		}
 
 		i := new(KeyValuePair)
-		//i.Key = make([]byte, len(k.Key), len(k.Key))
-		i.Key, err := massiveBuffer.Make(len(k.Key))
+		tmp, err := massiveBuffer.Make(len(k.Key))
+		if err != nil {
+			panic(err)
+		}
 		i.Key = tmp
-		//i.Key := massiveBuffer.Make(len(k.Key))
 		copy(i.Key, k.Key)
-		//i.Value = make([]byte, len(item), len(item))
-		i.Value = massiveBuf[nextBuf : nextBuf+len(item)]
-		nextBuf += len(item)
+		tmp, err = massiveBuffer.Make(len(item))
+		i.Value = tmp
 		copy(i.Value, item)
 
 		indices[k.Index].ReplaceOrInsert(i)
